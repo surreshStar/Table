@@ -222,10 +222,14 @@ function generateQuestions(){
     nums=shuffle(nums);
 
     return nums.slice(0,10).map(i=>{
-        if(mode==="table") return {q:`${i} × 2`, ans:i*2};
+        //if(mode==="table") return {q:`${i} × 3`, ans:i*3};
+		if(mode==="table") {
+			const table = Math.floor(Math.random() * 10) + 1;
+			return { q: `${i} × ${table}`, ans: i * table };
+		}
         if(mode==="square") return {q:`${i}²`, ans:i*i};
         if(mode==="cube") return {q:`${i}³`, ans:i*i*i};
-    });
+    });	
 }
 
 // ---------------- START ----------------
