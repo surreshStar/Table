@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Mobile Math Game</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    margin: 0;
+    background: #f2f2f2;
+}
+
+/* TOP BAR */
+#scoreBar {
+    background: #222;
+    color: white;
+    padding: 10px;
+    font-size: 16px;
+}
+
+/* START */
+#startScreen {
+    margin-top: 40px;
+}
+
+.bigBtn {
+    padding: 15px 20px;
+    font-size: 18px;
+    margin: 8px;
+    cursor: pointer;
+}
+
+/* RANGE */
+#rangeScreen {
+    display: none;
+    margin-top: 10px;
+}
+
+.rangeBtn {
+    padding: 10px;
+    margin: 5px;
+    font-size: 14px;
+}
+
+/* GAME AREA (MOBILE FIXED) */
+#gameArea {
+    width: 95vw;
+    height: 95vw;
+    max-width: 420px;
+    max-height: 420px;
+    margin: 10px auto;
+    position: relative;
+    border: 2px solid #333;
+    background: white;
+    overflow: hidden;
+    display: none;
+}
+
+/* QUESTION */
+.question {
+    font-size: 20px;
+}
+
+#timer {
+    font-size: 18px;
+    color: red;
+}
+
+/* OPTIONS (MOBILE FRIENDLY) */
+.option {
+    position: absolute;
+    padding: 14px;
+    font-size: 18px;
+    border: 2px solid #333;
+    border-radius: 10px;
+    cursor: pointer;
+    background: white;
+
+    /* IMPORTANT FOR MOBILE */
+    touch-action: manipulation;
+    user-select: none;
+}
+
+/* COLORS */
+.correct {
+    background: #4CAF50 !important;
+    color: white !important;
+}
+
+.wrong {
+    background: #f44336 !important;
+    color: white !important;
+}
+
+.timeout {
+    background: #ffeb3b !important;
+    color: black !important;
+}
+
+#nextBtn {
+    margin-top: 10px;
+    padding: 10px 15px;
+    font-size: 16px;
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<!-- TOP BAR -->
+<div id="scoreBar">
+🏆 Score: <span id="score">0</span> |
+⏱ Time: <span id="lastTime">0</span>s
+</div>
+
+<!-- START -->
+<div id="startScreen">
+    <h2>🧠 Mobile Math Game</h2>
+
+    <button class="bigBtn" onclick="selectMode('table')">Table</button>
+    <button class="bigBtn" onclick="selectMode('square')">Square</button>
+    <button class="bigBtn" onclick="selectMode('cube')">Cube</button>
+</div>
+
+<!-- RANGE -->
+<div id="rangeScreen"></div>
+
+<!-- GAME -->
+<div class="question" id="question"></div>
+<div id="timer">Time: 5</div>
+
+<div id="gameArea"></div>
+
+<div id="feedback"></div>
+<button id="nextBtn">Next ➜</button>
+
+<script>
+
+let mode="";
+let startRange=1;
+let endRange=10;
+
+let current=0;
+let locked=false;
+
+let timer;
+let timeLeft=5;
+
+let questions=[];
+let score=0;
+let questionStartTime=0;
+
+let movers=[];
+
+// ---------------- SHUFFLE ----------------
+function shuffle(arr){
+    return arr.sort(()=>Math.random()-0.5);
+}
+
+// ---------------- MODE ----------------
+function selectMode(m){
+    mode=m;
+    document.getElementById("startScreen").style.display="none";
+    document.getElementById("rangeScreen").style.display="block";
+    renderRanges();
+}
+
+// ---------------- RANGE ----------------
+function renderRanges(){
+    let r=document.getElementById("rangeScreen");
+    r.innerHTML="<h3>Select Range</h3>";
+
+    let btns=[];
+
+    if(mode==="table"){
+        btns=[[1,10],[11,20],[21,30],[1,30]];
+    }
+
+    if(mode==="square"){
+        btns=[[1,10],[11,20],[1,25]];
+    }
+
+    if(mode==="cube"){
+        btns=[[1,10],[11,15],[1,15]];
+    }
+
+    btns.forEach(b=>{
+        let btn=document.createElement("button");
+        btn.className="rangeBtn";
+        btn.innerText=`${b[0]}-${b[1]}`;
+        btn.onclick=()=>setRange(b[0],b[1]);
+        r.appendChild(btn);
+    });
+}
+
+// ---------------- SET RANGE ----------------
+function setRange(s,e){
+    startRange=s;
+    endRange=e;
+
+    document.getElementById("rangeScreen").style.display="none";
+    document.getElementById("gameArea").style.display="block";
+
+    startGame();
+}
+
+// ---------------- QUESTIONS ----------------
+function generateQuestions(){
+    let nums=[];
+    for(let i=startRange;i<=endRange;i++) nums.push(i);
+
+    nums=shuffle(nums);
+
+    return nums.slice(0,10).map(i=>{
+        if(mode==="table") return {q:`${i} × 2`, ans:i*2};
+        if(mode==="square") return {q:`${i}²`, ans:i*i};
+        if(mode==="cube") return {q:`${i}³`, ans:i*i*i};
+    });
+}
+
+// ---------------- START ----------------
+function startGame(){
+    questions=generateQuestions();
+    current=0;
+    score=0;
+    updateScore();
+    loadQuestion();
+}
+
+// ---------------- SCORE ----------------
+function updateScore(){
+    document.getElementById("score").innerText=score;
+}
+
+// ---------------- TIMER ----------------
+function startTimer(){
+    timeLeft=5;
+    document.getElementById("timer").innerText="Time: "+timeLeft;
+
+    questionStartTime=Date.now();
+
+    timer=setInterval(()=>{
+        timeLeft--;
+        document.getElementById("timer").innerText="Time: "+timeLeft;
+
+        if(timeLeft<=0){
+            clearInterval(timer);
+            if(!locked) timeUp();
+        }
+    },1000);
+}
+
+// ---------------- TIME UP ----------------
+function timeUp(){
+    locked=true;
+
+    let correct=questions[current].ans;
+
+    movers.forEach(o=>{
+        if(parseInt(o.el.innerText)===correct){
+            o.el.classList.add("correct");
+        }else{
+            o.el.classList.add("timeout");
+        }
+    });
+
+    document.getElementById("feedback").innerText="⏱ Time up! Answer: "+correct;
+    document.getElementById("nextBtn").style.display="inline-block";
+}
+
+// ---------------- MOVEMENT ----------------
+function startMovement(){
+    setInterval(()=>{
+        if(locked) return;
+
+        movers.forEach(obj=>{
+            let el=obj.el;
+
+            obj.x += obj.dx;
+            obj.y += obj.dy;
+
+            let size = document.getElementById("gameArea").offsetWidth;
+
+            if(obj.x <= 0 || obj.x >= size-60) obj.dx *= -1;
+            if(obj.y <= 0 || obj.y >= size-60) obj.dy *= -1;
+
+            el.style.left=obj.x+"px";
+            el.style.top=obj.y+"px";
+        });
+    },200);
+}
+
+// ---------------- LOAD QUESTION ----------------
+function loadQuestion(){
+    locked=false;
+
+    document.getElementById("feedback").innerText="";
+    document.getElementById("nextBtn").style.display="none";
+
+    let q=questions[current];
+    document.getElementById("question").innerText=q.q;
+
+    let correct=q.ans;
+
+    let opts=new Set([correct]);
+
+    while(opts.size<4){
+        opts.add(correct+(Math.floor(Math.random()*20)-10));
+    }
+
+    let arr=shuffle([...opts]);
+
+    let area=document.getElementById("gameArea");
+    area.innerHTML="";
+    movers=[];
+
+    let size=area.offsetWidth;
+
+    let positions=[
+        {x:20,y:20},
+        {x:size-80,y:20},
+        {x:20,y:size-80},
+        {x:size-80,y:size-80}
+    ];
+
+    startTimer();
+
+    arr.forEach((v,i)=>{
+        let div=document.createElement("div");
+        div.className="option";
+        div.innerText=v;
+
+        let obj={
+            el:div,
+            x:positions[i].x,
+            y:positions[i].y,
+            dx:(Math.random()*2+1)*(Math.random()<0.5?-1:1),
+            dy:(Math.random()*2+1)*(Math.random()<0.5?-1:1)
+        };
+
+        div.style.left=obj.x+"px";
+        div.style.top=obj.y+"px";
+
+        div.onclick=function(){
+            if(locked) return;
+            locked=true;
+
+            clearInterval(timer);
+
+            let timeTaken=(Date.now()-questionStartTime)/1000;
+            document.getElementById("lastTime").innerText=timeTaken.toFixed(2);
+
+            if(v===correct){
+                score+=10;
+                div.classList.add("correct");
+            }else{
+                div.classList.add("wrong");
+
+                movers.forEach(o=>{
+                    if(parseInt(o.el.innerText)===correct){
+                        o.el.classList.add("correct");
+                    }
+                });
+            }
+
+            updateScore();
+            document.getElementById("nextBtn").style.display="inline-block";
+        };
+
+        area.appendChild(div);
+        movers.push(obj);
+    });
+
+    startMovement();
+}
+
+// ---------------- NEXT ----------------
+document.getElementById("nextBtn").onclick=function(){
+    current++;
+
+    if(current>=questions.length){
+        document.getElementById("question").innerText="🎉 Completed!";
+        document.getElementById("gameArea").innerHTML="";
+        return;
+    }
+
+    loadQuestion();
+};
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Math Game Moving Options</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    background: #f2f2f2;
+}
+
+/* TOP BAR */
+#scoreBar {
+    background: #222;
+    color: white;
+    padding: 10px;
+    font-size: 18px;
+}
+
+/* START */
+#startScreen {
+    margin-top: 60px;
+}
+
+.bigBtn {
+    padding: 15px 25px;
+    font-size: 20px;
+    margin: 10px;
+    cursor: pointer;
+}
+
+/* RANGE */
+#rangeScreen {
+    display: none;
+    margin-top: 20px;
+}
+
+.rangeBtn {
+    padding: 10px 15px;
+    margin: 5px;
+    cursor: pointer;
+}
+
+/* GAME AREA */
+#gameArea {
+    width: 700px;
+    height: 700px;
+    margin: 15px auto;
+    position: relative;
+    border: 2px solid #333;
+    background: white;
+    overflow: hidden;
+    display: none;
+}
+
+.question {
+    font-size: 26px;
+}
+
+#timer {
+    font-size: 22px;
+    color: red;
+}
+
+/* OPTIONS */
+.option {
+    position: absolute;
+    padding: 15px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    cursor: pointer;
+    background: white;
+    transition: 0.1s;
+}
+
+/* COLORS */
+.correct {
+    background: #4CAF50 !important;
+    color: white !important;
+}
+
+.wrong {
+    background: #f44336 !important;
+    color: white !important;
+}
+
+.timeout {
+    background: #ffeb3b !important;
+    color: black !important;
+}
+
+#nextBtn {
+    margin-top: 10px;
+    padding: 10px 20px;
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<!-- SCORE -->
+<div id="scoreBar">
+🏆 Score: <span id="score">0</span> |
+⏱ This Question: <span id="lastTime">0</span>s
+</div>
+
+<!-- START -->
+<div id="startScreen">
+    <h1>🧠 Math Game Moving</h1>
+
+    <button class="bigBtn" onclick="selectMode('table')">Table</button>
+    <button class="bigBtn" onclick="selectMode('square')">Square</button>
+    <button class="bigBtn" onclick="selectMode('cube')">Cube</button>
+</div>
+
+<!-- RANGE -->
+<div id="rangeScreen"></div>
+
+<!-- GAME -->
+<div class="question" id="question"></div>
+<div id="timer">Time: 5</div>
+
+<div id="gameArea"></div>
+
+<div id="feedback"></div>
+<button id="nextBtn">Next ➜</button>
+
+<script>
+
+let mode="";
+let startRange=1;
+let endRange=10;
+
+let current=0;
+let locked=false;
+
+let timer;
+let timeLeft=5;
+
+let questions=[];
+
+let score=0;
+let questionStartTime=0;
+
+let movers=[];
+
+// ---------------- UTILS ----------------
+function shuffle(arr){
+    return arr.sort(()=>Math.random()-0.5);
+}
+
+// ---------------- MODE ----------------
+function selectMode(m){
+    mode=m;
+    document.getElementById("startScreen").style.display="none";
+    document.getElementById("rangeScreen").style.display="block";
+
+    renderRanges();
+}
+
+// ---------------- RANGE ----------------
+function renderRanges(){
+    let r=document.getElementById("rangeScreen");
+    r.innerHTML="<h2>Select Range</h2>";
+
+    let btns=[];
+
+    if(mode==="table"){
+        btns=[[1,10],[11,20],[21,30],[1,30]];
+    }
+
+    if(mode==="square"){
+        btns=[[1,10],[11,20],[1,25]];
+    }
+
+    if(mode==="cube"){
+        btns=[[1,10],[11,15],[1,15]];
+    }
+
+    btns.forEach(b=>{
+        let btn=document.createElement("button");
+        btn.className="rangeBtn";
+        btn.innerText=`${b[0]} - ${b[1]}`;
+        btn.onclick=()=>setRange(b[0],b[1]);
+        r.appendChild(btn);
+    });
+}
+
+// ---------------- SET RANGE ----------------
+function setRange(s,e){
+    startRange=s;
+    endRange=e;
+
+    document.getElementById("rangeScreen").style.display="none";
+    document.getElementById("gameArea").style.display="block";
+
+    startGame();
+}
+
+// ---------------- QUESTIONS ----------------
+function generateQuestions(){
+    let nums=[];
+    for(let i=startRange;i<=endRange;i++) nums.push(i);
+
+    nums=shuffle(nums);
+
+    return nums.slice(0,10).map(i=>{
+        if(mode==="table") return {q:`${i} × 2`, ans:i*2};
+        if(mode==="square") return {q:`${i}²`, ans:i*i};
+        if(mode==="cube") return {q:`${i}³`, ans:i*i*i};
+    });
+}
+
+// ---------------- START ----------------
+function startGame(){
+    questions=generateQuestions();
+    current=0;
+    score=0;
+
+    updateScore();
+    loadQuestion();
+}
+
+// ---------------- SCORE ----------------
+function updateScore(){
+    document.getElementById("score").innerText=score;
+}
+
+// ---------------- TIMER ----------------
+function startTimer(){
+    timeLeft=5;
+    document.getElementById("timer").innerText="Time: "+timeLeft;
+
+    questionStartTime=Date.now();
+
+    timer=setInterval(()=>{
+        timeLeft--;
+        document.getElementById("timer").innerText="Time: "+timeLeft;
+
+        if(timeLeft<=0){
+            clearInterval(timer);
+            if(!locked) timeUp();
+        }
+    },1000);
+}
+
+// ---------------- TIME UP ----------------
+function timeUp(){
+    locked=true;
+
+    let correct=questions[current].ans;
+
+    movers.forEach(o=>{
+        if(parseInt(o.el.innerText)===correct){
+            o.el.classList.add("correct");
+        }else{
+            o.el.classList.add("timeout");
+        }
+    });
+
+    document.getElementById("feedback").innerText="⏱ Time up! Answer: "+correct;
+    document.getElementById("nextBtn").style.display="inline-block";
+}
+
+// ---------------- MOVEMENT ENGINE ----------------
+function startMovement(){
+    setInterval(()=>{
+        if(locked) return;
+
+        movers.forEach(obj=>{
+            let el=obj.el;
+
+            obj.x += obj.dx;
+            obj.y += obj.dy;
+
+            if(obj.x<=0 || obj.x>=650) obj.dx*=-1;
+            if(obj.y<=0 || obj.y>=650) obj.dy*=-1;
+
+            el.style.left=obj.x+"px";
+            el.style.top=obj.y+"px";
+        });
+    },100);
+}
+
+// ---------------- LOAD QUESTION ----------------
+function loadQuestion(){
+    locked=false;
+
+    document.getElementById("feedback").innerText="";
+    document.getElementById("nextBtn").style.display="none";
+
+    let q=questions[current];
+    document.getElementById("question").innerText=q.q;
+
+    let correct=q.ans;
+
+    let opts=new Set([correct]);
+
+    while(opts.size<4){
+        opts.add(correct+(Math.floor(Math.random()*20)-10));
+    }
+
+    let arr=shuffle([...opts]);
+
+    let area=document.getElementById("gameArea");
+    area.innerHTML="";
+
+    movers=[];
+
+    let positions=shuffle([
+        {x:80,y:80},
+        {x:520,y:80},
+        {x:80,y:520},
+        {x:520,y:520}
+    ]);
+
+    startTimer();
+
+    arr.forEach((v,i)=>{
+        let div=document.createElement("div");
+        div.className="option";
+        div.innerText=v;
+
+        let obj={
+            el:div,
+            x:positions[i].x,
+            y:positions[i].y,
+            dx:(Math.random()*2+1)*(Math.random()<0.5?-1:1),
+            dy:(Math.random()*2+1)*(Math.random()<0.5?-1:1)
+        };
+
+        div.style.left=obj.x+"px";
+        div.style.top=obj.y+"px";
+
+        div.onclick=function(){
+            if(locked) return;
+            locked=true;
+
+            clearInterval(timer);
+
+            let timeTaken=(Date.now()-questionStartTime)/1000;
+            document.getElementById("lastTime").innerText=timeTaken.toFixed(2);
+
+            if(v===correct){
+                score+=10;
+                div.classList.add("correct");
+                document.getElementById("feedback").innerText="✅ Correct!";
+            }else{
+                div.classList.add("wrong");
+                document.getElementById("feedback").innerText="❌ Answer: "+correct;
+
+                movers.forEach(o=>{
+                    if(parseInt(o.el.innerText)===correct){
+                        o.el.classList.add("correct");
+                    }
+                });
+            }
+
+            updateScore();
+            document.getElementById("nextBtn").style.display="inline-block";
+        };
+
+        area.appendChild(div);
+        movers.push(obj);
+    });
+
+    startMovement();
+}
+
+// ---------------- NEXT ----------------
+document.getElementById("nextBtn").onclick=function(){
+    current++;
+
+    if(current>=questions.length){
+        document.getElementById("question").innerText="🎉 Completed!";
+        document.getElementById("gameArea").innerHTML="";
+        return;
+    }
+
+    loadQuestion();
+};
+
+</script>
+
+</body>
+</html>

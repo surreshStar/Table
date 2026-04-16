@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Math Game</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    background: #f2f2f2;
+}
+
+/* START SCREEN */
+#startScreen {
+    margin-top: 100px;
+}
+
+.bigBtn {
+    padding: 15px 25px;
+    font-size: 20px;
+    margin: 10px;
+    cursor: pointer;
+    border: 2px solid #333;
+    background: white;
+    border-radius: 10px;
+}
+
+/* TOP BAR */
+#topBar {
+    margin-top: 10px;
+}
+
+.btn {
+    padding: 8px 10px;
+    margin: 2px;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1px solid #333;
+    background: white;
+    border-radius: 5px;
+}
+
+.btn.active {
+    background: #4CAF50;
+    color: white;
+}
+
+/* GAME */
+#gameArea {
+    width: 700px;
+    height: 700px;
+    margin: 15px auto;
+    position: relative;
+    border: 2px solid #333;
+    background: white;
+    overflow: hidden;
+    display: none;
+}
+
+.question {
+    font-size: 26px;
+    margin-top: 5px;
+}
+
+#timer {
+    font-size: 22px;
+    font-weight: bold;
+    color: #d32f2f;
+}
+
+.option {
+    position: absolute;
+    padding: 15px 20px;
+    background: #fff;
+    border: 2px solid #333;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.feedback {
+    font-size: 20px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+#nextBtn {
+    margin-top: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<!-- START SCREEN -->
+<div id="startScreen">
+    <h1>🧠 Math Game</h1>
+
+    <button class="bigBtn" onclick="startTableMode()">🔢 Table Game (11–30)</button>
+    <br>
+    <button class="bigBtn" onclick="startSquareMode()">🔲 Square Game (1²–20²)</button>
+</div>
+
+<!-- GAME UI -->
+<div id="topBar"></div>
+
+<div class="question" id="question"></div>
+<div id="timer">Time: 5</div>
+
+<div id="gameArea"></div>
+
+<div class="feedback" id="feedback"></div>
+<button id="nextBtn">Next ➜</button>
+
+<script>
+
+let mode = "";
+let table = 11;
+
+let current = 0;
+let locked = false;
+let intervals = [];
+let timerInterval;
+let timeLeft = 5;
+let questions = [];
+
+// ---------------- STOP ----------------
+function stopAllMotion() {
+    intervals.forEach(i => clearInterval(i));
+    intervals = [];
+}
+
+// ---------------- QUESTIONS ----------------
+function generateQuestions() {
+    let arr = [];
+
+    if (mode === "table") {
+        let nums = [1,2,3,4,5,6,7,8,9,10];
+        nums.sort(() => Math.random() - 0.5);
+
+        arr = nums.map(i => ({
+            q: `${table} × ${i}`,
+            ans: table * i
+        }));
+    }
+
+    if (mode === "square") {
+        let nums = [];
+        for (let i = 1; i <= 20; i++) nums.push(i);
+
+        nums.sort(() => Math.random() - 0.5);
+
+        arr = nums.slice(0, 10).map(i => ({
+            q: `${i}²`,
+            ans: i * i
+        }));
+    }
+
+    return arr;
+}
+
+// ---------------- START MODES ----------------
+function startTableMode() {
+    mode = "table";
+    table = 11;
+    startGame();
+}
+
+function startSquareMode() {
+    mode = "square";
+    startGame();
+}
+
+// ---------------- INIT GAME ----------------
+function startGame() {
+    document.getElementById("startScreen").style.display = "none";
+    document.getElementById("gameArea").style.display = "block";
+
+    createButtons();
+    questions = generateQuestions();
+    loadQuestion();
+}
+
+// ---------------- TABLE BUTTONS ----------------
+function createButtons() {
+    let bar = document.getElementById("topBar");
+    bar.innerHTML = "";
+
+    if (mode === "table") {
+        for (let i = 11; i <= 30; i++) {
+            let btn = document.createElement("button");
+            btn.innerText = i;
+            btn.className = "btn";
+
+            btn.onclick = () => {
+                table = i;
+                current = 0;
+                questions = generateQuestions();
+                loadQuestion();
+                highlightActive();
+            };
+
+            bar.appendChild(btn);
+        }
+    }
+
+    highlightActive();
+}
+
+// ---------------- HIGHLIGHT ----------------
+function highlightActive() {
+    document.querySelectorAll(".btn").forEach(b => b.classList.remove("active"));
+
+    if (mode === "table") {
+        document.querySelectorAll(".btn").forEach(b => {
+            if (parseInt(b.innerText) === table) {
+                b.classList.add("active");
+            }
+        });
+    }
+}
+
+// ---------------- TIMER ----------------
+function startTimer() {
+    timeLeft = 5;
+    document.getElementById("timer").innerText = "Time: " + timeLeft;
+
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById("timer").innerText = "Time: " + timeLeft;
+
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            if (!locked) timeUp();
+        }
+    }, 1000);
+}
+
+// ---------------- TIME UP ----------------
+function timeUp() {
+    locked = true;
+    stopAllMotion();
+
+    let correct = questions[current].ans;
+
+    document.getElementById("feedback").innerText =
+        "⏱ Time up! Correct answer: " + correct;
+
+    document.querySelectorAll(".option").forEach(o => {
+        if (parseInt(o.innerText) === correct) {
+            o.style.background = "#4CAF50";
+        }
+    });
+
+    document.getElementById("nextBtn").style.display = "inline-block";
+}
+
+// ---------------- LOAD QUESTION ----------------
+function loadQuestion() {
+    locked = false;
+
+    document.getElementById("nextBtn").style.display = "none";
+    document.getElementById("feedback").innerText = "";
+
+    let q = questions[current];
+    document.getElementById("question").innerText = q.q;
+
+    let correct = q.ans;
+
+    let opts = new Set();
+    opts.add(correct);
+
+    while (opts.size < 4) {
+        let fake = correct + (Math.floor(Math.random() * 20) - 10);
+        if (fake > 0) opts.add(fake);
+    }
+
+    let arr = Array.from(opts).sort(() => Math.random() - 0.5);
+
+    let area = document.getElementById("gameArea");
+    area.innerHTML = "";
+
+    let positions = [
+        {x: 100, y: 100},
+        {x: 500, y: 100},
+        {x: 100, y: 500},
+        {x: 500, y: 500}
+    ];
+
+    arr.forEach((val, index) => {
+        let div = document.createElement("div");
+        div.className = "option";
+        div.innerText = val;
+
+        let pos = positions[index];
+        div.style.left = pos.x + "px";
+        div.style.top = pos.y + "px";
+
+        let vx = (Math.random() * 0.3) + 0.1;
+        let vy = (Math.random() * 0.3) + 0.1;
+
+        let interval = setInterval(() => {
+            if (locked) return;
+
+            pos.x += vx;
+            pos.y += vy;
+
+            if (pos.x < 0 || pos.x > 650) vx *= -1;
+            if (pos.y < 0 || pos.y > 650) vy *= -1;
+
+            div.style.left = pos.x + "px";
+            div.style.top = pos.y + "px";
+        }, 20);
+
+        intervals.push(interval);
+
+        div.onclick = function () {
+            if (locked) return;
+            locked = true;
+
+            clearInterval(timerInterval);
+            stopAllMotion();
+
+            let correct = questions[current].ans;
+
+            if (val === correct) {
+                div.style.background = "#4CAF50";
+                document.getElementById("feedback").innerText = "✅ Correct!";
+            } else {
+                div.style.background = "#f44336";
+                document.getElementById("feedback").innerText =
+                    "❌ Wrong! Correct answer: " + correct;
+
+                document.querySelectorAll(".option").forEach(o => {
+                    if (parseInt(o.innerText) === correct) {
+                        o.style.background = "#4CAF50";
+                    }
+                });
+            }
+
+            document.getElementById("nextBtn").style.display = "inline-block";
+        };
+
+        area.appendChild(div);
+    });
+
+    startTimer();
+}
+
+// ---------------- NEXT ----------------
+document.getElementById("nextBtn").onclick = function () {
+    current++;
+
+    if (current >= questions.length) {
+        document.getElementById("question").innerText =
+            "🎉 Completed!";
+        document.getElementById("gameArea").innerHTML = "";
+        return;
+    }
+
+    loadQuestion();
+};
+
+</script>
+
+</body>
+</html>

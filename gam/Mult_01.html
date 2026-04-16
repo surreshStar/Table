@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Table 13 Slow Game</title>
+
+<style>
+body {
+    font-family: Arial;
+    text-align: center;
+    background: #f2f2f2;
+}
+
+#gameArea {
+    width: 700px;
+    height: 700px;
+    margin: 20px auto;
+    position: relative;
+    border: 2px solid #333;
+    background: white;
+    overflow: hidden;
+}
+
+.question {
+    font-size: 28px;
+    margin-top: 20px;
+}
+
+.option {
+    position: absolute;
+    padding: 15px 20px;
+    background: #fff;
+    border: 2px solid #333;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.feedback {
+    font-size: 22px;
+    font-weight: bold;
+    margin-top: 15px;
+}
+
+#nextBtn {
+    margin-top: 15px;
+    padding: 10px 20px;
+    font-size: 18px;
+    cursor: pointer;
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="question" id="question"></div>
+<div id="gameArea"></div>
+
+<div class="feedback" id="feedback"></div>
+<button id="nextBtn">Next Question ➜</button>
+
+<script>
+
+let questions = [
+    {q: "13 × 1", ans: 13},
+    {q: "13 × 2", ans: 26},
+    {q: "13 × 3", ans: 39},
+    {q: "13 × 4", ans: 52},
+    {q: "13 × 5", ans: 65},
+    {q: "13 × 6", ans: 78},
+    {q: "13 × 7", ans: 91},
+    {q: "13 × 8", ans: 104},
+    {q: "13 × 9", ans: 117},
+    {q: "13 × 10", ans: 130}
+];
+
+let current = 0;
+let locked = false;
+let intervals = [];
+
+function randomPos() {
+    return {
+        x: Math.random() * 600,
+        y: Math.random() * 600
+    };
+}
+
+function stopAllMotion() {
+    intervals.forEach(i => clearInterval(i));
+    intervals = [];
+}
+
+function loadQuestion() {
+    locked = false;
+
+    document.getElementById("nextBtn").style.display = "none";
+    document.getElementById("feedback").innerText = "";
+
+    let q = questions[current];
+    document.getElementById("question").innerText = q.q;
+
+    let correct = q.ans;
+
+    let opts = new Set();
+    opts.add(correct);
+
+    while (opts.size < 4) {
+        let fake = correct + (Math.floor(Math.random() * 20) - 10);
+        if (fake > 0) opts.add(fake);
+    }
+
+    let arr = Array.from(opts).sort(() => Math.random() - 0.5);
+
+    let area = document.getElementById("gameArea");
+    area.innerHTML = "";
+
+    arr.forEach(val => {
+        let div = document.createElement("div");
+        div.className = "option";
+        div.innerText = val;
+
+        let pos = randomPos();
+        div.style.left = pos.x + "px";
+        div.style.top = pos.y + "px";
+
+        // 🐢 SLOW MOVEMENT
+        let vx = (Math.random() * 0.4) + 0.1;
+        let vy = (Math.random() * 0.4) + 0.1;
+
+        let interval = setInterval(() => {
+            if (locked) return;
+
+            let x = parseFloat(div.style.left);
+            let y = parseFloat(div.style.top);
+
+            x += vx;
+            y += vy;
+
+            if (x < 0 || x > 650) vx *= -1;
+            if (y < 0 || y > 650) vy *= -1;
+
+            div.style.left = x + "px";
+            div.style.top = y + "px";
+        }, 5);
+
+        intervals.push(interval);
+
+        div.onclick = function () {
+            if (locked) return;
+            locked = true;
+
+            stopAllMotion();
+
+            if (val === correct) {
+                div.style.background = "#4CAF50";
+                div.style.color = "white";
+                document.getElementById("feedback").innerText = "✅ Correct!";
+            } else {
+                div.style.background = "#f44336";
+                div.style.color = "white";
+                document.getElementById("feedback").innerText =
+                    "❌ Wrong! Correct answer: " + correct;
+
+                // highlight correct answer
+                document.querySelectorAll(".option").forEach(o => {
+                    if (parseInt(o.innerText) === correct) {
+                        o.style.background = "#4CAF50";
+                        o.style.color = "white";
+                    }
+                });
+            }
+
+            document.getElementById("nextBtn").style.display = "inline-block";
+        };
+
+        area.appendChild(div);
+    });
+}
+
+document.getElementById("nextBtn").onclick = function () {
+    current++;
+
+    if (current >= questions.length) {
+        document.getElementById("question").innerText = "🎉 Completed!";
+        document.getElementById("gameArea").innerHTML = "";
+        document.getElementById("feedback").innerText = "";
+        this.style.display = "none";
+        return;
+    }
+
+    loadQuestion();
+};
+
+loadQuestion();
+
+</script>
+
+</body>
+</html>
